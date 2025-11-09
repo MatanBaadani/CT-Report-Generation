@@ -1,0 +1,14 @@
+torch>=2.1.0
+torchvision
+torchaudio
+transformers>=4.35.0
+monai>=1.3.0
+pandas
+numpy
+tqdm
+nltk
+rouge-score
+scikit-learn
+huggingface-hub
+matplotlib
+Pillow
