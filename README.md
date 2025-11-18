@@ -94,12 +94,6 @@ https://huggingface.co/StanfordAIMI/CXR-BERT-general
 This model predicts common radiological findings from text and is applied to both ground-truth and generated reports to assess clinical consistency.
 
 ---
- #Requirements
-
-Create a new environment and install dependencies:
-pip install -r requirements.txt
-
----
 
  #Citation
 
