@@ -31,7 +31,7 @@ plt.grid(True, linestyle="--", alpha=0.5)
 plt.tight_layout()
 
 # =====================================================
-# SAVE — vector PDF (best for LyX)
+# SAVE — vector PDF
 # =====================================================
 plt.savefig(SAVE_PATH, format="pdf", dpi=600, bbox_inches="tight")
 plt.close()
