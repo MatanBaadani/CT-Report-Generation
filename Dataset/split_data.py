@@ -14,12 +14,12 @@ TRAIN_DIR = os.path.join(BASE_DIR, "train_pooled_data")
 VAL_DIR = os.path.join(BASE_DIR, "val_pooled_data")
 TEST_DIR = os.path.join(BASE_DIR, "test_pooled_data")
 
-# Hard-coded split percentages
+# hard-coded split percentages
 TRAIN_RATIO = 0.8
 VAL_RATIO = 0.1
 TEST_RATIO = 0.1
 
-# Create output folders
+# create output folders
 os.makedirs(TRAIN_DIR, exist_ok=True)
 os.makedirs(VAL_DIR, exist_ok=True)
 os.makedirs(TEST_DIR, exist_ok=True)
@@ -54,11 +54,11 @@ for f in all_files:
 
 print(f"[INFO] Found {len(patients)} unique patients.\n")
 
-# Shuffle patients for randomness
+# shuffle patients for randomness
 patient_ids = list(patients.keys())
 random.shuffle(patient_ids)
 
-# Determine patient counts for each split
+#  patient counts for each split
 num_patients = len(patient_ids)
 num_train = int(num_patients * TRAIN_RATIO)
 num_val = int(num_patients * VAL_RATIO)
