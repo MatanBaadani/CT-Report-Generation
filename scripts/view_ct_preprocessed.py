@@ -46,7 +46,7 @@ def main():
     print(f"[INFO] Loading CT: {ct_path}")
 
     # ----------------------------------------------------------
-    # Preprocessing (same as in VISTA3D pipeline)
+    # Preprocessing 
     # ----------------------------------------------------------
     pre = Compose([
         LoadImaged(keys="image", image_only=True),
@@ -64,9 +64,8 @@ def main():
     ct = out["image"].squeeze().cpu().numpy()  # shape: (D, H, W)
     print(f"[INFO] Preprocessed shape: {ct.shape}")
 
-    # ----------------------------------------------------------
     # Scrollable Viewer
-    # ----------------------------------------------------------
+
     class ScrollViewer:
         def __init__(self, ct):
             self.ct = ct
@@ -104,12 +103,7 @@ def main():
                 self.ind = (self.ind - 1) % self.slices
             self.update()
 
-    # Launch viewer
     ScrollViewer(ct)
 
-
-# ==============================================================
-# ENTRY POINT
-# ==============================================================
 if __name__ == "__main__":
     main()
