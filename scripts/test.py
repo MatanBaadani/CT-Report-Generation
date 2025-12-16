@@ -15,7 +15,7 @@ from models.qformer_t5_bridge import QFormerT5, BridgeConfig
 
 
 # ==============================================================
-# CONFIG (relative to project root)
+# CONFIG 
 # ==============================================================
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATASET_DIR = os.path.join(PROJECT_ROOT, "Dataset")
@@ -82,7 +82,7 @@ def compute_bleu_rouge(pred, ref):
 
 
 # ==============================================================
-# CLINICAL F1 (Classifier-based)
+# CLINICAL F1
 # ==============================================================
 device_f1 = DEVICE
 tokenizer_f1 = AutoTokenizer.from_pretrained(F1_MODEL_DIR)
@@ -119,7 +119,7 @@ def main():
     ds = CTFeatureTextDataset(CSV_PATH, DATA_DIR, tokenizer, max_length=MAX_TEXT_LEN)
     dl = DataLoader(ds, batch_size=BATCH_SIZE, shuffle=False)
 
-    # ---- Load model ----
+
     bridge_cfg = BridgeConfig(t5_name=T5_NAME, freeze_t5_encoder=False, freeze_t5_decoder=False)
     model = QFormerT5(
         vision_dim=768, q_hidden_dim=512, num_query_tokens=128,
