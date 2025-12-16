@@ -14,7 +14,7 @@ from sklearn.metrics import precision_recall_fscore_support
 from models.qformer_t5_bridge import QFormerT5, BridgeConfig
 
 # ============================================================
-# CONFIG (RELATIVE PATHS)
+# CONFIG 
 # ============================================================
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATASET_DIR = os.path.join(PROJECT_ROOT, "Dataset")
@@ -142,14 +142,14 @@ def main():
 
     tokenizer = T5Tokenizer.from_pretrained(T5_NAME)
 
-    # ---- datasets
+    # datasets
     train_ds = CTFeatureTextDataset(TRAIN_DIR, TRAIN_CSV, tokenizer, MAX_TEXT_LEN)
     val_ds   = CTFeatureTextDataset(VAL_DIR, TRAIN_CSV, tokenizer, MAX_TEXT_LEN)
 
     train_dl = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True)
     val_dl   = DataLoader(val_ds, batch_size=1, shuffle=False)
 
-    # ---- model
+    # model
     bridge_cfg = BridgeConfig(t5_name=T5_NAME, freeze_t5_encoder=True, freeze_t5_decoder=False)
     model = QFormerT5(
         vision_dim=768,
@@ -161,7 +161,7 @@ def main():
         bridge_cfg=bridge_cfg
     ).to(DEVICE)
 
-    # ---- Phase 1: Q-Former only
+    # Phase 1: Q-Former only
     for p in model.t5.parameters():
         p.requires_grad = False
 
@@ -183,9 +183,7 @@ def main():
     print(f"[INFO] Train={len(train_ds)} | Val={len(val_ds)}")
 
     for epoch in range(EPOCHS):
-        # -------------------------------
         # Phase unfreezing
-        # -------------------------------
         if epoch == 5:
             print("[INFO] Phase 2: unfreeze top-2 decoder blocks")
             for p in model.t5.decoder.block[-2:].parameters():
@@ -207,9 +205,8 @@ def main():
             ], weight_decay=0.01)
             sched = CosineAnnealingLR(opt, T_max=EPOCHS-epoch)
 
-        # -------------------------------
         # TRAIN
-        # -------------------------------
+
         model.train()
         opt.zero_grad(set_to_none=True)
         total_loss = 0.0
@@ -237,9 +234,8 @@ def main():
         train_loss = total_loss / len(train_dl)
         print(f"[TRAIN] Epoch {epoch} | loss={train_loss:.4f}")
 
-        # -------------------------------
         # VALIDATION LOSS (every epoch)
-        # -------------------------------
+
         model.eval()
         vloss_sum = 0.0
         with torch.no_grad(), torch.amp.autocast("cuda"):
@@ -253,9 +249,8 @@ def main():
 
         bleu4 = rougeL = clinF1 = 0.0
 
-        # -------------------------------
         # EVALUATION (every 5 epochs)
-        # -------------------------------
+        
         if (epoch+1) % 5 == 0 or epoch == EPOCHS-1:
             refs_all, preds_all = [], []
             bsum, rsum = 0.0, 0.0
@@ -302,9 +297,7 @@ def main():
             torch.save(model.state_dict(), ckpt)
             print(f"[CKPT] saved {ckpt}")
 
-        # -------------------------------
         # LOGGING
-        # -------------------------------
         with open(LOG_PATH, "a") as f:
             f.write(f"{epoch},{phase(epoch)},{train_loss:.4f},{val_loss:.4f},"
                     f"{bleu4:.4f},{rougeL:.4f},{clinF1:.4f}\n")
