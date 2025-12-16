@@ -25,7 +25,7 @@ def sinusoidal_position_1d(length: int, dim: int, device: torch.device):
 
 
 # =============================================================
-# Q-Former: self-attn on queries + cross-attn to vision tokens
+# Q-Former
 # =============================================================
 
 class CrossAttentionBlock(nn.Module):
@@ -48,26 +48,20 @@ class CrossAttentionBlock(nn.Module):
         )
 
     def forward(self, q_tokens: torch.Tensor, kv_tokens: torch.Tensor, kv_mask: Optional[torch.Tensor] = None):
-        # q_tokens: (B, Q, H)
-        # kv_tokens: (B, N, H)
-        # kv_mask:   (B, N) -> True for valid tokens (like attention_mask)
-        # Self-attn on queries
+
         residual = q_tokens
         qn = self.ln1(q_tokens)
         q_sa, _ = self.self_attn(qn, qn, qn, need_weights=False)
         q_tokens = residual + q_sa
 
-        # Cross-attn from queries to vision tokens
         residual = q_tokens
         qn = self.ln2(q_tokens)
-        # PyTorch MultiheadAttention expects key_padding_mask where True = to be ignored.
         key_padding_mask = None
         if kv_mask is not None:
             key_padding_mask = ~kv_mask.bool()
         q_ca, _ = self.cross_attn(qn, kv_tokens, kv_tokens, key_padding_mask=key_padding_mask, need_weights=False)
         q_tokens = residual + q_ca
 
-        # FFN
         residual = q_tokens
         qn = self.ln3(q_tokens)
         q_ffn = self.mlp(qn)
@@ -105,13 +99,13 @@ class QFormer(nn.Module):
         self.kv_posenc = kv_posenc
         self.kv_pos_dim = kv_pos_dim or hidden_dim
 
-        # Project vision features into Q-Former hidden space
+
         self.proj_in = nn.Linear(vision_dim, hidden_dim)
 
-        # Learnable query tokens
+
         self.query_tokens = nn.Parameter(torch.randn(1, num_query_tokens, hidden_dim) * 0.02)
 
-        # Optional positional encodings for KV (vision) sequence
+
         if kv_posenc == 'learned':
             self.kv_pos_table = nn.Embedding(max_kv_len, self.kv_pos_dim)
         else:
@@ -153,12 +147,7 @@ class QFormer(nn.Module):
         return kv + pe
 
     def forward(self, vision_feats: torch.Tensor, vision_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
-        """
-        vision_feats: (B, N, C_v)  e.g., (1, 4096, 768)
-        vision_mask:  (B, N) with 1 for valid tokens (optional)
-        Returns:
-            q_tokens: (B, Q, H)
-        """
+
         B, N, _ = vision_feats.shape
         kv = self.proj_in(vision_feats)
         kv = self._add_kv_pos(kv)
@@ -210,10 +199,8 @@ class QFormerT5(nn.Module):
         self.t5: T5ForConditionalGeneration = T5ForConditionalGeneration.from_pretrained(bridge_cfg.t5_name)
         t5_d_model: int = self.t5.config.d_model
 
-        # Project Q tokens to T5 d_model for cross-attention compatibility
         self.q_to_t5 = nn.Linear(q_hidden_dim, t5_d_model)
-
-        # Freezing policy
+                     
         if bridge_cfg.freeze_t5_encoder:
             for p in self.t5.encoder.parameters():
                 p.requires_grad = False
@@ -228,14 +215,14 @@ class QFormerT5(nn.Module):
                 vision_mask: Optional[torch.Tensor] = None,  # (B, N) 1=valid
                 decoder_input_ids: Optional[torch.Tensor] = None,
                 labels: Optional[torch.Tensor] = None):
-        # 1) Q-Former encodes vision tokens into Q tokens
+
         q_tokens = self.qformer(vision_feats, vision_mask=vision_mask)  # (B, Q, H_q)
         enc_states = self.q_to_t5(q_tokens)  # (B, Q, d_model)
 
-        # 2) Build T5 encoder_outputs directly from Q tokens
+
         encoder_outputs = BaseModelOutput(last_hidden_state=enc_states)
 
-        # 3) Run T5 decoder with our custom encoder_outputs
+
         outputs = self.t5(
             encoder_outputs=encoder_outputs,
             decoder_input_ids=decoder_input_ids,
@@ -255,36 +242,36 @@ class QFormerT5(nn.Module):
         return self.t5.generate(encoder_outputs=encoder_outputs, **gen_kwargs)
 
 
-# =============================================================
-# Example (dry run)
-# =============================================================
-if __name__ == "__main__":
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+# # =============================================================
+# # Example (dry run)
+# # =============================================================
+# if __name__ == "__main__":
+#     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-    # Your saved encoder outputs after pooling+flatten
-    # Shape: (B, N, C_v) = (1, 4096, 768)
-    feats = torch.randn(1, 4096, 768, device=device)
-    attn_mask = torch.ones(1, 4096, dtype=torch.long, device=device)  # optional
+#     # Your saved encoder outputs after pooling+flatten
+#     # Shape: (B, N, C_v) = (1, 4096, 768)
+#     feats = torch.randn(1, 4096, 768, device=device)
+#     attn_mask = torch.ones(1, 4096, dtype=torch.long, device=device)  # optional
 
-    model = QFormerT5(
-        vision_dim=768,           # matches your features
-        q_hidden_dim=512,         # internal Q-Former size
-        num_query_tokens=128,
-        q_depth=4,
-        q_heads=8,
-        kv_posenc='none',         # pooled tokens -> positions likely not meaningful
-        bridge_cfg=BridgeConfig(t5_name='t5-small', freeze_t5_encoder=True, freeze_t5_decoder=False)
-    ).to(device)
+#     model = QFormerT5(
+#         vision_dim=768,           # matches your features
+#         q_hidden_dim=512,         # internal Q-Former size
+#         num_query_tokens=128,
+#         q_depth=4,
+#         q_heads=8,
+#         kv_posenc='none',         # pooled tokens -> positions likely not meaningful
+#         bridge_cfg=BridgeConfig(t5_name='t5-small', freeze_t5_encoder=True, freeze_t5_decoder=False)
+#     ).to(device)
 
-    print(f"[PARAMS] total={sum(p.numel() for p in model.parameters())/1e6:.2f}M | "
-          f"trainable={count_trainable_params(model)/1e6:.2f}M")
+#     print(f"[PARAMS] total={sum(p.numel() for p in model.parameters())/1e6:.2f}M | "
+#           f"trainable={count_trainable_params(model)/1e6:.2f}M")
 
-    # Dry forward with labels (teacher forcing) to get a loss
-    tok = 32111  # <pad> for T5 vocab as a placeholder BOS; replace with real tokenizer usage
-    labels = torch.tensor([[tok, tok, tok]], device=device)
-    out = model(vision_feats=feats, vision_mask=attn_mask, labels=labels)
-    print("Loss:", float(out.loss))
+#     # Dry forward with labels (teacher forcing) to get a loss
+#     tok = 32111  # <pad> for T5 vocab as a placeholder BOS; replace with real tokenizer usage
+#     labels = torch.tensor([[tok, tok, tok]], device=device)
+#     out = model(vision_feats=feats, vision_mask=attn_mask, labels=labels)
+#     print("Loss:", float(out.loss))
 
-    # Generation demo (greedy, short)
-    ids = model.generate(vision_feats=feats, max_length=16)
-    print("Generated IDs shape:", ids.shape)
+#     # Generation demo (greedy, short)
+#     ids = model.generate(vision_feats=feats, max_length=16)
+#     print("Generated IDs shape:", ids.shape)
